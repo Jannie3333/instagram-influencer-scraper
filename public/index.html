@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instagram Influencer Scraper</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#101114;color:#e9edf2;font-size:13px}
+a{color:#5fb3ff;text-decoration:none}
+a:hover{text-decoration:underline}
+.app{height:100vh;display:flex;overflow:hidden}
+.sidebar{width:340px;min-width:300px;background:#181a20;border-right:1px solid #2a2d36;display:flex;flex-direction:column;overflow:auto}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.header{padding:16px;border-bottom:1px solid #2a2d36}
+.header h1{font-size:17px;color:#ffffff;margin-bottom:4px}
+.header p{font-size:11px;color:#8a93a3}
+.section{padding:13px 16px;border-bottom:1px solid #242730}
+label{display:block;font-size:11px;color:#8a93a3;margin:10px 0 5px;text-transform:uppercase;letter-spacing:.4px}
+label:first-child{margin-top:0}
+textarea,input,select{width:100%;background:#101114;border:1px solid #343844;color:#e9edf2;border-radius:6px;padding:7px 8px;font-size:12px;outline:none}
+textarea{resize:vertical;min-height:64px}
+textarea:focus,input:focus,select:focus{border-color:#5fb3ff}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.checks{display:flex;flex-direction:column;gap:7px;margin-top:5px}
+.checks label{display:flex;align-items:center;gap:7px;margin:0;color:#d4d9e2;font-size:12px;text-transform:none;letter-spacing:0}
+.checks input{width:14px;height:14px;accent-color:#5fb3ff}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+button{border:0;border-radius:6px;padding:7px 12px;font-size:12px;font-weight:650;cursor:pointer}
+button:disabled{opacity:.45;cursor:default}
+.primary{background:#2563eb;color:white}
+.danger{background:#b42318;color:white}
+.secondary{background:#232733;color:#d7deea;border:1px solid #343844}
+.green{background:#087443;color:white}
+.progress{margin-top:10px;display:none}
+.bar-bg{height:7px;border-radius:4px;background:#252936;overflow:hidden}
+.bar{height:100%;width:0;background:#5fb3ff;transition:width .25s}
+.progress-text{font-size:11px;color:#8a93a3;margin-top:5px}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding:10px 14px;background:#181a20;border-bottom:1px solid #242730}
+.stat{background:#101114;border:1px solid #242730;border-radius:8px;padding:9px;text-align:center}
+.stat .v{font-size:18px;font-weight:750;color:#ffffff}
+.stat .l{font-size:10px;color:#8a93a3;margin-top:2px}
+.toolbar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:#181a20;border-bottom:1px solid #242730;flex-wrap:wrap}
+.toolbar input,.toolbar select{width:auto;min-width:110px;padding:5px 7px;font-size:11px}
+.table-wrap{flex:1;overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:1380px;font-size:11px}
+th{position:sticky;top:0;background:#181a20;z-index:2;padding:7px 8px;text-align:left;color:#9aa3b4;border-bottom:1px solid #343844;white-space:nowrap;cursor:pointer}
+td{padding:6px 8px;border-bottom:1px solid #20232b;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+tbody tr:hover{background:#171b24}
+.avatar{width:30px;height:30px;border-radius:50%;object-fit:cover;background:#252936}
+.badge{display:inline-block;border-radius:4px;padding:1px 5px;font-size:10px;background:#213047;color:#9ed0ff}
+.badge-ok{background:#123c2a;color:#8ff0ba}
+.pager{display:flex;gap:8px;align-items:center;padding:8px 14px;background:#181a20;border-top:1px solid #242730;color:#9aa3b4}
+.log{height:0;overflow:auto;background:#090a0d;border-top:1px solid #242730;font-family:Consolas,"Courier New",monospace;font-size:11px;transition:height .2s}
+.log.open{height:190px;padding:8px}
+.log-line{color:#8ef29f;padding:1px 0}
+.log-line.err{color:#ff9c8f}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px}
+.online{background:#22c55e}.offline{background:#ef4444}.pending{background:#eab308}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="header">
+      <h1>Instagram 红人抓取</h1>
+      <p id="serverStatus"><span class="dot pending"></span>连接中...</p>
+    </div>
+
+    <div class="section">
+      <label>话题标签</label>
+      <textarea id="tagsInput" placeholder="beauty&#10;fitness&#10;skincare"></textarea>
+
+      <label>指定用户名</label>
+      <textarea id="usersInput" placeholder="@username&#10;https://www.instagram.com/username/"></textarea>
+
+      <label>Instagram Cookie</label>
+      <textarea id="cookieInput" placeholder="sessionid=...; csrftoken=..."></textarea>
+
+      <div class="grid2">
+        <div>
+          <label>每个标签最多账号</label>
+          <input type="number" id="maxPosts" value="30" min="1" max="200">
+        </div>
+        <div>
+          <label>每批目标数</label>
+          <input type="number" id="batchSize" value="12" min="1" max="100">
+        </div>
+      </div>
+
+      <label>抓取选项</label>
+      <div class="checks">
+        <label><input type="checkbox" id="chkBrowserFallback" checked> 标签搜索使用浏览器兜底</label>
+        <label><input type="checkbox" id="chkHeadless" checked> Headless 浏览器</label>
+        <label><input type="checkbox" id="chkHumanMode" checked> 随机真人节奏</label>
+        <label><input type="checkbox" id="chkRunOnce" checked> 只跑一轮</label>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <label>循环最小间隔 分钟</label>
+          <input type="number" id="batchDelayMin" value="30">
+        </div>
+        <div>
+          <label>循环最大间隔 分钟</label>
+          <input type="number" id="batchDelayMax" value="75">
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="btns">
+        <button class="primary" id="btnStart" onclick="startScrape()">开始抓取</button>
+        <button class="danger" id="btnStop" onclick="stopScrape()" disabled>停止</button>
+        <button class="secondary" onclick="exportCSV()">导出 CSV</button>
+        <button class="secondary" onclick="toggleLog()">日志</button>
+      </div>
+      <div class="progress" id="progressWrap">
+        <div class="bar-bg"><div class="bar" id="progressBar"></div></div>
+        <div class="progress-text" id="progressText">准备中...</div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="stats">
+      <div class="stat"><div class="v" id="statTotal">0</div><div class="l">总账号</div></div>
+      <div class="stat"><div class="v" id="statEmail">0</div><div class="l">有邮箱</div></div>
+      <div class="stat"><div class="v" id="statVerified">0</div><div class="l">已认证</div></div>
+      <div class="stat"><div class="v" id="statAvgFans">0</div><div class="l">平均粉丝</div></div>
+      <div class="stat"><div class="v" id="statFiltered">0</div><div class="l">当前筛选</div></div>
+    </div>
+
+    <div class="toolbar">
+      <input id="searchInput" type="text" placeholder="搜索用户名/简介/标签" oninput="applyFilters()">
+      <select id="emailFilter" onchange="applyFilters()">
+        <option value="">全部邮箱</option>
+        <option value="1">有邮箱</option>
+        <option value="0">无邮箱</option>
+      </select>
+      <select id="verifiedFilter" onchange="applyFilters()">
+        <option value="">全部认证</option>
+        <option value="1">已认证</option>
+        <option value="0">未认证</option>
+      </select>
+      <input id="minFollowers" type="number" value="0" placeholder="最低粉丝" onchange="applyFilters()">
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortBy('scraped_at')">抓取时间</th>
+            <th>头像</th>
+            <th onclick="sortBy('username')">用户名</th>
+            <th onclick="sortBy('full_name')">昵称</th>
+            <th onclick="sortBy('follower_count')">粉丝</th>
+            <th onclick="sortBy('following_count')">关注</th>
+            <th onclick="sortBy('media_count')">帖子</th>
+            <th>认证</th>
+            <th>私密</th>
+            <th>邮箱</th>
+            <th>外链</th>
+            <th>分类</th>
+            <th>来源标签</th>
+            <th>简介</th>
+            <th>来源</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="pager">
+      <button class="secondary" id="btnPrevPage" onclick="prevPage()" disabled>上一页</button>
+      <span id="pageInfo">-</span>
+      <button class="secondary" id="btnNextPage" onclick="nextPage()" disabled>下一页</button>
+    </div>
+
+    <div class="log" id="logPanel">
+      <div id="logLines"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+var allRows = [];
+var filteredRows = [];
+var currentPage = 0;
+var PAGE_SIZE = 100;
+var sortCol = 'scraped_at';
+var sortAsc = false;
+var logOpen = false;
+var dataVersion = 0;
+var logVersion = 0;
+var pollInterval = null;
+
+function lsGet(k, def) { try { var v = localStorage.getItem('ig_' + k); return v !== null ? JSON.parse(v) : def; } catch(e) { return def; } }
+function lsSet(k, v) { try { localStorage.setItem('ig_' + k, JSON.stringify(v)); } catch(e) {} }
+
+function parseLines(raw) {
+  return raw.split(/[\n,]+/).map(function(v) { return v.trim(); }).filter(Boolean);
+}
+
+function saveFormState() {
+  ['tagsInput','usersInput','cookieInput','maxPosts','batchSize','batchDelayMin','batchDelayMax'].forEach(function(id) {
+    lsSet(id, document.getElementById(id).value);
+  });
+  ['chkBrowserFallback','chkHeadless','chkHumanMode','chkRunOnce'].forEach(function(id) {
+    lsSet(id, document.getElementById(id).checked);
+  });
+}
+
+function loadFormState() {
+  ['tagsInput','usersInput','cookieInput','maxPosts','batchSize','batchDelayMin','batchDelayMax'].forEach(function(id) {
+    var el = document.getElementById(id);
+    el.value = lsGet(id, el.value);
+  });
+  document.getElementById('chkBrowserFallback').checked = lsGet('chkBrowserFallback', true);
+  document.getElementById('chkHeadless').checked = lsGet('chkHeadless', true);
+  document.getElementById('chkHumanMode').checked = lsGet('chkHumanMode', true);
+  document.getElementById('chkRunOnce').checked = lsGet('chkRunOnce', true);
+}
+
+function apiFetch(url, opts) {
+  return fetch(url, opts).then(function(r) { return r.json(); });
+}
+
+function checkHealth() {
+  apiFetch('/api/health').then(function(d) {
+    var el = document.getElementById('serverStatus');
+    if (d.ok) {
+      el.innerHTML = '<span class="dot online"></span>在线 | Instagram: ' + (d.connectivity.instagram ? 'OK' : '受限');
+    } else {
+      el.innerHTML = '<span class="dot offline"></span>服务异常';
+    }
+  }).catch(function() {
+    document.getElementById('serverStatus').innerHTML = '<span class="dot offline"></span>无法连接';
+  });
+}
+
+function getOptions() {
+  return {
+    tags: parseLines(document.getElementById('tagsInput').value),
+    usernames: parseLines(document.getElementById('usersInput').value),
+    cookieStr: document.getElementById('cookieInput').value.trim(),
+    maxPostsPerTag: parseInt(document.getElementById('maxPosts').value) || 30,
+    batchSize: parseInt(document.getElementById('batchSize').value) || 12,
+    batchDelayMin: parseInt(document.getElementById('batchDelayMin').value) || 30,
+    batchDelayMax: parseInt(document.getElementById('batchDelayMax').value) || 75,
+    useBrowserFallback: document.getElementById('chkBrowserFallback').checked,
+    headless: document.getElementById('chkHeadless').checked,
+    humanMode: document.getElementById('chkHumanMode').checked,
+    runOnce: document.getElementById('chkRunOnce').checked
+  };
+}
+
+function startScrape() {
+  saveFormState();
+  var opts = getOptions();
+  if (!opts.tags.length && !opts.usernames.length) {
+    alert('请先输入话题标签或用户名');
+    return;
+  }
+  apiFetch('/api/runner/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(opts)
+  }).then(function(d) {
+    if (!d.ok) appendLog('[UI] 启动失败: ' + (d.error || ''));
+    startPolling();
+  });
+}
+
+function stopScrape() {
+  apiFetch('/api/runner/stop', { method: 'POST' }).then(function() {
+    appendLog('[UI] 已请求停止');
+  });
+}
+
+function startPolling() {
+  if (pollInterval) return;
+  pollInterval = setInterval(pollStatus, 2000);
+}
+
+function pollStatus() {
+  apiFetch('/api/runner/status?sinceDataVersion=' + dataVersion + '&sinceLogVersion=' + logVersion).then(function(d) {
+    if (!d.ok) return;
+    document.getElementById('btnStart').disabled = d.running;
+    document.getElementById('btnStop').disabled = !d.running;
+    document.getElementById('progressWrap').style.display = d.running ? 'block' : 'none';
+    if (d.progress) {
+      var pct = d.progress.total ? Math.round((d.progress.index / d.progress.total) * 100) : 0;
+      document.getElementById('progressBar').style.width = pct + '%';
+      document.getElementById('progressText').textContent = d.progress.tag + ' (' + (d.progress.index + 1) + '/' + d.progress.total + ')';
+    }
+    if (d.newLogs && d.newLogs.length) {
+      d.newLogs.forEach(appendLog);
+      logVersion = d.logVersion;
+    }
+    if (d.newRows) {
+      allRows = d.newRows;
+      dataVersion = d.dataVersion;
+      applyFilters();
+    }
+  }).catch(function() {});
+}
+
+function appendLog(line) {
+  var box = document.getElementById('logLines');
+  var div = document.createElement('div');
+  div.className = 'log-line' + (/error|failed|blocked|失败|错误/i.test(line) ? ' err' : '');
+  div.textContent = line;
+  box.appendChild(div);
+  while (box.children.length > 500) box.removeChild(box.firstChild);
+  document.getElementById('logPanel').scrollTop = document.getElementById('logPanel').scrollHeight;
+}
+
+function toggleLog() {
+  logOpen = !logOpen;
+  document.getElementById('logPanel').className = 'log' + (logOpen ? ' open' : '');
+}
+
+function fmtNum(n) {
+  n = Number(n || 0);
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return String(n);
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function applyFilters() {
+  var search = document.getElementById('searchInput').value.toLowerCase();
+  var emailF = document.getElementById('emailFilter').value;
+  var verifiedF = document.getElementById('verifiedFilter').value;
+  var minF = parseInt(document.getElementById('minFollowers').value) || 0;
+
+  filteredRows = allRows.filter(function(r) {
+    if (search) {
+      var hay = [r.username, r.full_name, r.biography, r.source_tags, r.category].join(' ').toLowerCase();
+      if (hay.indexOf(search) === -1) return false;
+    }
+    if (emailF === '1' && !r.email) return false;
+    if (emailF === '0' && r.email) return false;
+    if (verifiedF === '1' && !r.is_verified) return false;
+    if (verifiedF === '0' && r.is_verified) return false;
+    if (minF > 0 && Number(r.follower_count || 0) < minF) return false;
+    return true;
+  });
+
+  filteredRows.sort(function(a, b) {
+    var va = a[sortCol] || '';
+    var vb = b[sortCol] || '';
+    if (typeof va === 'number' || typeof vb === 'number') return sortAsc ? Number(va) - Number(vb) : Number(vb) - Number(va);
+    return sortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+  });
+  currentPage = 0;
+  renderTable();
+  updateStats();
+}
+
+function sortBy(col) {
+  if (sortCol === col) sortAsc = !sortAsc;
+  else { sortCol = col; sortAsc = false; }
+  applyFilters();
+}
+
+function updateStats() {
+  var emailCount = allRows.filter(function(r) { return r.email; }).length;
+  var verifiedCount = allRows.filter(function(r) { return r.is_verified; }).length;
+  var sum = allRows.reduce(function(n, r) { return n + Number(r.follower_count || 0); }, 0);
+  document.getElementById('statTotal').textContent = allRows.length;
+  document.getElementById('statEmail').textContent = emailCount;
+  document.getElementById('statVerified').textContent = verifiedCount;
+  document.getElementById('statAvgFans').textContent = allRows.length ? fmtNum(Math.round(sum / allRows.length)) : '0';
+  document.getElementById('statFiltered').textContent = filteredRows.length;
+}
+
+function renderTable() {
+  var start = currentPage * PAGE_SIZE;
+  var rows = filteredRows.slice(start, start + PAGE_SIZE);
+  var html = '';
+  rows.forEach(function(r) {
+    var avatar = r.profile_pic_url ? '<img class="avatar" src="' + esc(r.profile_pic_url) + '" referrerpolicy="no-referrer">' : '<div class="avatar"></div>';
+    var username = r.profile_url ? '<a href="' + esc(r.profile_url) + '" target="_blank">@' + esc(r.username) + '</a>' : '@' + esc(r.username);
+    var urls = String(r.external_urls || '').split(',').filter(Boolean).slice(0, 2).map(function(u) {
+      return '<a href="' + esc(u) + '" target="_blank">' + esc(u.replace(/^https?:\/\//, '').slice(0, 28)) + '</a>';
+    }).join('<br>');
+    html += '<tr>';
+    html += '<td>' + esc((r.scraped_at || '').replace('T',' ').slice(0,16)) + '</td>';
+    html += '<td>' + avatar + '</td>';
+    html += '<td>' + username + '</td>';
+    html += '<td title="' + esc(r.full_name) + '">' + esc(r.full_name) + '</td>';
+    html += '<td>' + fmtNum(r.follower_count) + '</td>';
+    html += '<td>' + fmtNum(r.following_count) + '</td>';
+    html += '<td>' + fmtNum(r.media_count) + '</td>';
+    html += '<td>' + (r.is_verified ? '<span class="badge badge-ok">verified</span>' : '') + '</td>';
+    html += '<td>' + (r.is_private ? '是' : '') + '</td>';
+    html += '<td>' + esc(r.email || '') + '</td>';
+    html += '<td>' + urls + '</td>';
+    html += '<td>' + esc(r.category || '') + '</td>';
+    html += '<td>' + esc(r.source_tags || '') + '</td>';
+    html += '<td title="' + esc(r.biography) + '">' + esc(String(r.biography || '').slice(0, 80)) + '</td>';
+    html += '<td><span class="badge">' + esc(r.source || '') + '</span></td>';
+    html += '</tr>';
+  });
+  document.getElementById('tableBody').innerHTML = html;
+  var pages = Math.ceil(filteredRows.length / PAGE_SIZE);
+  document.getElementById('pageInfo').textContent = filteredRows.length ? '第 ' + (currentPage + 1) + ' 页 / 共 ' + pages + ' 页，' + filteredRows.length + ' 条' : '无数据';
+  document.getElementById('btnPrevPage').disabled = currentPage <= 0;
+  document.getElementById('btnNextPage').disabled = currentPage >= pages - 1;
+}
+
+function prevPage() { if (currentPage > 0) { currentPage--; renderTable(); } }
+function nextPage() { var pages = Math.ceil(filteredRows.length / PAGE_SIZE); if (currentPage < pages - 1) { currentPage++; renderTable(); } }
+
+function exportCSV() {
+  var cols = ['scraped_at','platform','username','full_name','follower_count','following_count','media_count','is_verified','is_private','email','external_urls','source_tags','category','biography','profile_url','profile_pic_url','source'];
+  var csv = [cols.map(function(c) { return '"' + c + '"'; }).join(',')];
+  filteredRows.forEach(function(r) {
+    csv.push(cols.map(function(c) {
+      return '"' + String(r[c] == null ? '' : r[c]).replace(/"/g, '""') + '"';
+    }).join(','));
+  });
+  var blob = new Blob(['\ufeff' + csv.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'instagram-leads-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function loadData() {
+  apiFetch('/api/data/latest').then(function(d) {
+    if (d.ok && d.rows) {
+      allRows = d.rows;
+      dataVersion = d.dataVersion || 0;
+      applyFilters();
+    }
+  }).catch(function() {});
+}
+
+(function init() {
+  loadFormState();
+  loadData();
+  checkHealth();
+  startPolling();
+  setInterval(checkHealth, 30000);
+  document.querySelectorAll('textarea,input,select').forEach(function(el) {
+    el.addEventListener('change', saveFormState);
+  });
+})();
+</script>
+</body>
+</html>
