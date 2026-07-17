@@ -1,0 +1,9 @@
+node_modules/
+node_modules_broken_copy/
+data-excel/
+*.log
+.env
+*.local.ps1
+cookies*.txt
+playwright-report/
+test-results/
